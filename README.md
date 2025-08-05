@@ -1,70 +1,206 @@
-# Getting Started with Create React App
+# Summit Seekers - Rock Climbing Adventures Forum
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A modern React.js web application for rock climbing enthusiasts to share their adventures, discuss routes, and connect with the climbing community.
 
-## Available Scripts
+## 🏔️ Features
 
-In the project directory, you can run:
+### Core Functionality
+- **Create Posts**: Share climbing adventures with title, content, images, location, and grade
+- **Home Feed**: Browse all posts with search and sort functionality
+- **Post Details**: View full posts with comments and upvote system
+- **Comments**: Leave comments on any post
+- **Upvotes**: Upvote posts to show appreciation
+- **Edit/Delete**: Edit or delete your own posts
+- **Responsive Design**: Works perfectly on desktop and mobile
 
-### `npm start`
+### User Experience
+- **Search**: Search posts by title
+- **Sort**: Sort posts by creation time or upvotes
+- **Modern UI**: Beautiful gradient design with smooth animations
+- **Real-time Updates**: Instant feedback for all interactions
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## 🚀 Getting Started
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+### Prerequisites
+- Node.js (v14 or higher)
+- npm or yarn
+- Supabase account
 
-### `npm test`
+### Installation
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd rock-climbing-forum
+   ```
 
-### `npm run build`
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+3. **Set up Supabase**
+   - Create a new project at [supabase.com](https://supabase.com)
+   - Get your project URL and anon key
+   - Update `src/supabase.js` with your credentials
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+4. **Create database tables**
+   
+   Run these SQL commands in your Supabase SQL editor:
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+   ```sql
+   -- Create posts table
+   CREATE TABLE posts (
+     id BIGSERIAL PRIMARY KEY,
+     title TEXT NOT NULL,
+     content TEXT,
+     image_url TEXT,
+     location TEXT,
+     grade TEXT,
+     upvotes INTEGER DEFAULT 0,
+     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+   );
 
-### `npm run eject`
+   -- Create comments table
+   CREATE TABLE comments (
+     id BIGSERIAL PRIMARY KEY,
+     post_id BIGINT REFERENCES posts(id) ON DELETE CASCADE,
+     content TEXT NOT NULL,
+     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+   );
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+   -- Enable Row Level Security (optional)
+   ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
+   ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+   -- Create policies for public access
+   CREATE POLICY "Allow public read access" ON posts FOR SELECT USING (true);
+   CREATE POLICY "Allow public insert" ON posts FOR INSERT WITH CHECK (true);
+   CREATE POLICY "Allow public update" ON posts FOR UPDATE USING (true);
+   CREATE POLICY "Allow public delete" ON posts FOR DELETE USING (true);
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+   CREATE POLICY "Allow public read access" ON comments FOR SELECT USING (true);
+   CREATE POLICY "Allow public insert" ON comments FOR INSERT WITH CHECK (true);
+   ```
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+5. **Start the development server**
+   ```bash
+   npm start
+   ```
 
-## Learn More
+6. **Open your browser**
+   Navigate to `http://localhost:3000`
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## 🗄️ Database Schema
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+### Posts Table
+| Column | Type | Description |
+|--------|------|-------------|
+| id | BIGSERIAL | Primary key |
+| title | TEXT | Post title (required) |
+| content | TEXT | Post content |
+| image_url | TEXT | External image URL |
+| location | TEXT | Climbing location |
+| grade | TEXT | Climbing grade (5.5-5.13+) |
+| upvotes | INTEGER | Number of upvotes (default: 0) |
+| created_at | TIMESTAMP | Creation timestamp |
 
-### Code Splitting
+### Comments Table
+| Column | Type | Description |
+|--------|------|-------------|
+| id | BIGSERIAL | Primary key |
+| post_id | BIGINT | Foreign key to posts |
+| content | TEXT | Comment content |
+| created_at | TIMESTAMP | Creation timestamp |
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+## 🎨 Design Features
 
-### Analyzing the Bundle Size
+- **Modern Gradient Design**: Beautiful purple-blue gradients
+- **Card-based Layout**: Clean, organized post cards
+- **Smooth Animations**: Hover effects and transitions
+- **Responsive Grid**: Adapts to all screen sizes
+- **Loading States**: Spinner animations for better UX
+- **Error Handling**: User-friendly error messages
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+## 🛠️ Technology Stack
 
-### Making a Progressive Web App
+- **Frontend**: React.js 18
+- **Routing**: React Router DOM
+- **Database**: Supabase (PostgreSQL)
+- **Styling**: CSS3 with modern features
+- **Icons**: Font Awesome 6
+- **Fonts**: Inter (Google Fonts)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+## 📱 Responsive Design
 
-### Advanced Configuration
+The application is fully responsive and works on:
+- Desktop (1200px+)
+- Tablet (768px - 1199px)
+- Mobile (< 768px)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+## 🚀 Deployment
 
-### Deployment
+### Build for Production
+```bash
+npm run build
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+### Deploy to Vercel
+1. Install Vercel CLI: `npm i -g vercel`
+2. Run: `vercel`
+3. Follow the prompts
 
-### `npm run build` fails to minify
+### Deploy to Netlify
+1. Build the project: `npm run build`
+2. Drag the `build` folder to Netlify
+3. Configure environment variables if needed
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+## 🔧 Configuration
+
+### Environment Variables
+Create a `.env` file in the root directory:
+
+```env
+REACT_APP_SUPABASE_URL=your_supabase_url
+REACT_APP_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+Then update `src/supabase.js`:
+```javascript
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL
+const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY
+```
+
+## 🎯 Project Requirements Met
+
+✅ **Create Form**: Users can create posts with title, content, and image URL  
+✅ **Home Feed**: Displays all posts with creation time, title, and upvotes  
+✅ **Post Navigation**: Clicking posts navigates to individual post pages  
+✅ **Search & Sort**: Search by title, sort by time or upvotes  
+✅ **Post Details**: Full post view with content, image, and comments  
+✅ **Comments**: Users can leave comments on posts  
+✅ **Upvotes**: Upvote button increases count by one  
+✅ **Edit/Delete**: Users can edit and delete their posts  
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## 📄 License
+
+This project is open source and available under the [MIT License](LICENSE).
+
+## 🙏 Acknowledgments
+
+- React.js team for the amazing framework
+- Supabase for the backend-as-a-service
+- Font Awesome for the beautiful icons
+- The climbing community for inspiration
+
+---
+
+**Happy Climbing! 🧗‍♂️**
