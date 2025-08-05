@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../supabase';
 import './HomeFeed.css';
@@ -9,11 +9,7 @@ const HomeFeed = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('time');
 
-  useEffect(() => {
-    fetchPosts();
-  }, [sortBy]);
-
-  const fetchPosts = async () => {
+  const fetchPosts = useCallback(async () => {
     try {
       let query = supabase
         .from('posts')
@@ -37,7 +33,11 @@ const HomeFeed = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [sortBy]);
+
+  useEffect(() => {
+    fetchPosts();
+  }, [fetchPosts]);
 
   const filteredPosts = posts.filter(post =>
     post.title.toLowerCase().includes(searchTerm.toLowerCase())

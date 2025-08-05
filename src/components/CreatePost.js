@@ -35,10 +35,20 @@ const CreatePost = () => {
     setError('');
 
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        setError('You must be signed in to create a post');
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('posts')
         .insert([
           {
+            user_id: user.id,
             title: formData.title.trim(),
             content: formData.content.trim(),
             image_url: formData.imageUrl.trim(),

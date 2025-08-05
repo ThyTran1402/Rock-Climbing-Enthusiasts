@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
 import './PostDetail.css';
@@ -14,13 +14,9 @@ const PostDetail = () => {
   const [upvoting, setUpvoting] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
   const [editFormData, setEditFormData] = useState({});
+  const [currentUser, setCurrentUser] = useState(null);
 
-  useEffect(() => {
-    fetchPost();
-    fetchComments();
-  }, [id]);
-
-  const fetchPost = async () => {
+  const fetchPost = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('posts')
@@ -47,9 +43,9 @@ const PostDetail = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, navigate]);
 
-  const fetchComments = async () => {
+  const fetchComments = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('comments')
@@ -65,7 +61,9 @@ const PostDetail = () => {
     } catch (error) {
       console.error('Error:', error);
     }
-  };
+  }, [id]);
+
+
 
   const handleUpvote = async () => {
     if (!post || upvoting) return;
@@ -95,11 +93,21 @@ const PostDetail = () => {
 
     setSubmittingComment(true);
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        alert('You must be signed in to comment');
+        setSubmittingComment(false);
+        return;
+      }
+
       const { error } = await supabase
         .from('comments')
         .insert([
           {
             post_id: id,
+            user_id: user.id,
             content: commentText.trim(),
             created_at: new Date().toISOString()
           }
@@ -123,6 +131,20 @@ const PostDetail = () => {
     if (!editFormData.title.trim()) return;
 
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        alert('You must be signed in to edit posts');
+        return;
+      }
+
+      // Check if user owns the post
+      if (post.user_id !== user.id) {
+        alert('You can only edit your own posts');
+        return;
+      }
+
       const { error } = await supabase
         .from('posts')
         .update({
@@ -149,6 +171,20 @@ const PostDetail = () => {
     if (!window.confirm('Are you sure you want to delete this post?')) return;
 
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        alert('You must be signed in to delete posts');
+        return;
+      }
+
+      // Check if user owns the post
+      if (post.user_id !== user.id) {
+        alert('You can only delete your own posts');
+        return;
+      }
+
       const { error } = await supabase
         .from('posts')
         .delete()
@@ -297,14 +333,18 @@ const PostDetail = () => {
                     <i className="fas fa-thumbs-up"></i>
                     {post.upvotes || 0}
                   </button>
-                  <button onClick={() => setShowEditForm(true)} className="btn btn-secondary">
-                    <i className="fas fa-edit"></i>
-                    Edit
-                  </button>
-                  <button onClick={handleDelete} className="btn btn-danger">
-                    <i className="fas fa-trash"></i>
-                    Delete
-                  </button>
+                  {currentUser && post.user_id === currentUser.id && (
+                    <>
+                      <button onClick={() => setShowEditForm(true)} className="btn btn-secondary">
+                        <i className="fas fa-edit"></i>
+                        Edit
+                      </button>
+                      <button onClick={handleDelete} className="btn btn-danger">
+                        <i className="fas fa-trash"></i>
+                        Delete
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>

@@ -5,12 +5,13 @@ A modern React.js web application for rock climbing enthusiasts to share their a
 ## 🏔️ Features
 
 ### Core Functionality
+- **User Authentication**: Sign up, sign in, and sign out functionality
 - **Create Posts**: Share climbing adventures with title, content, images, location, and grade
 - **Home Feed**: Browse all posts with search and sort functionality
 - **Post Details**: View full posts with comments and upvote system
-- **Comments**: Leave comments on any post
+- **Comments**: Leave comments on any post (requires authentication)
 - **Upvotes**: Upvote posts to show appreciation
-- **Edit/Delete**: Edit or delete your own posts
+- **Edit/Delete**: Edit or delete your own posts (requires authentication)
 - **Responsive Design**: Works perfectly on desktop and mobile
 
 ### User Experience
@@ -46,12 +47,13 @@ A modern React.js web application for rock climbing enthusiasts to share their a
 
 4. **Create database tables**
    
-   Run these SQL commands in your Supabase SQL editor:
+   Run these SQL commands in your Supabase SQL editor (use `supabase_auth_schema.sql` for the complete setup):
 
    ```sql
-   -- Create posts table
+   -- Create posts table with user authentication
    CREATE TABLE posts (
      id BIGSERIAL PRIMARY KEY,
+     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
      title TEXT NOT NULL,
      content TEXT,
      image_url TEXT,
@@ -61,26 +63,29 @@ A modern React.js web application for rock climbing enthusiasts to share their a
      created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
    );
 
-   -- Create comments table
+   -- Create comments table with user authentication
    CREATE TABLE comments (
      id BIGSERIAL PRIMARY KEY,
      post_id BIGINT REFERENCES posts(id) ON DELETE CASCADE,
+     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
      content TEXT NOT NULL,
      created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
    );
 
-   -- Enable Row Level Security (optional)
+   -- Enable Row Level Security
    ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
    ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
 
-   -- Create policies for public access
+   -- Create policies for authenticated access
    CREATE POLICY "Allow public read access" ON posts FOR SELECT USING (true);
-   CREATE POLICY "Allow public insert" ON posts FOR INSERT WITH CHECK (true);
-   CREATE POLICY "Allow public update" ON posts FOR UPDATE USING (true);
-   CREATE POLICY "Allow public delete" ON posts FOR DELETE USING (true);
+   CREATE POLICY "Allow authenticated users to insert" ON posts FOR INSERT WITH CHECK (auth.uid() = user_id);
+   CREATE POLICY "Allow users to update their own posts" ON posts FOR UPDATE USING (auth.uid() = user_id);
+   CREATE POLICY "Allow users to delete their own posts" ON posts FOR DELETE USING (auth.uid() = user_id);
 
    CREATE POLICY "Allow public read access" ON comments FOR SELECT USING (true);
-   CREATE POLICY "Allow public insert" ON comments FOR INSERT WITH CHECK (true);
+   CREATE POLICY "Allow authenticated users to insert comments" ON comments FOR INSERT WITH CHECK (auth.uid() = user_id);
+   CREATE POLICY "Allow users to update their own comments" ON comments FOR UPDATE USING (auth.uid() = user_id);
+   CREATE POLICY "Allow users to delete their own comments" ON comments FOR DELETE USING (auth.uid() = user_id);
    ```
 
 5. **Start the development server**
@@ -97,6 +102,7 @@ A modern React.js web application for rock climbing enthusiasts to share their a
 | Column | Type | Description |
 |--------|------|-------------|
 | id | BIGSERIAL | Primary key |
+| user_id | UUID | Foreign key to auth.users (required) |
 | title | TEXT | Post title (required) |
 | content | TEXT | Post content |
 | image_url | TEXT | External image URL |
@@ -110,6 +116,7 @@ A modern React.js web application for rock climbing enthusiasts to share their a
 |--------|------|-------------|
 | id | BIGSERIAL | Primary key |
 | post_id | BIGINT | Foreign key to posts |
+| user_id | UUID | Foreign key to auth.users (required) |
 | content | TEXT | Comment content |
 | created_at | TIMESTAMP | Creation timestamp |
 
