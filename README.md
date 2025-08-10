@@ -1,213 +1,119 @@
-# Summit Seekers - Rock Climbing Adventures Forum
+# Web Development Final Project - *Rock Climbing Enthusiast*
 
-A modern React.js web application for rock climbing enthusiasts to share their adventures, discuss routes, and connect with the climbing community.
+Submitted by: **Thy Tran**
 
-## 🏔️ Features
+This web app: **A web application for rock climbing enthusiasts to share their adventures, discuss routes, and connect with the climbing community.**
 
-### Core Functionality
-- **User Authentication**: Sign up, sign in, and sign out functionality
-- **Create Posts**: Share climbing adventures with title, content, images, location, and grade
-- **Home Feed**: Browse all posts with search and sort functionality
-- **Post Details**: View full posts with comments and upvote system
-- **Comments**: Leave comments on any post (requires authentication)
-- **Upvotes**: Upvote posts to show appreciation
-- **Edit/Delete**: Edit or delete your own posts (requires authentication)
-- **Responsive Design**: Works perfectly on desktop and mobile
+Time spent: **10** hours spent in total
 
-### User Experience
-- **Search**: Search posts by title
-- **Sort**: Sort posts by creation time or upvotes
-- **Modern UI**: Beautiful gradient design with smooth animations
-- **Real-time Updates**: Instant feedback for all interactions
+## Required Features
 
-## 🚀 Getting Started
+The following **required** functionality is completed:
 
-### Prerequisites
-- Node.js (v14 or higher)
-- npm or yarn
-- Supabase account
 
-### Installation
+- [X] **Web app includes a create form that allows the user to create posts**
+  - Form requires users to add a post title
+  - Forms should have the *option* for users to add: 
+    - additional textual content
+    - an image added as an external image URL
+- [X] **Web app includes a home feed displaying previously created posts**
+  - Web app must include home feed displaying previously created posts
+  - By default, each post on the posts feed should show only the post's:
+    - creation time
+    - title 
+    - upvotes count
+  - Clicking on a post should direct the user to a new page for the selected post
+- [X] **Users can view posts in different ways**
+  - Users can sort posts by either:
+    -  creation time
+    -  upvotes count
+  - Users can search for posts by title
+- [X] **Users can interact with each post in different ways**
+  - The app includes a separate post page for each created post when clicked, where any additional information is shown, including:
+    - content
+    - image
+    - comments
+  - Users can leave comments underneath a post on the post page
+  - Each post includes an upvote button on the post page. 
+    - Each click increases the post's upvotes count by one
+    - Users can upvote any post any number of times
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd rock-climbing-forum
-   ```
+- [X] **A post that a user previously created can be edited or deleted from its post pages**
+  - After a user creates a new post, they can go back and edit the post
+  - A previously created post can be deleted from its post page
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+The following **optional** features are implemented:
 
-3. **Set up Supabase**
-   - Create a new project at [supabase.com](https://supabase.com)
-   - Get your project URL and anon key
-   - Update `src/supabase.js` with your credentials
 
-4. **Create database tables**
-   
-   Run these SQL commands in your Supabase SQL editor (use `supabase_auth_schema.sql` for the complete setup):
+- [ ] Web app implements pseudo-authentication
+  - Users can only edit and delete posts or delete comments by entering the secret key, which is set by the user during post creation
+  - **or** upon launching the web app, the user is assigned a random user ID. It will be associated with all posts and comments that they make and displayed on them
+  - For both options, only the original user author of a post can update or delete it
+- [ ] Users can repost a previous post by referencing its post ID. On the post page of the new post
+  - Users can repost a previous post by referencing its post ID
+  - On the post page of the new post, the referenced post is displayed and linked, creating a thread
+- [ ] Users can customize the interface
+  - e.g., selecting the color scheme or showing the content and image of each post on the home feed
+- [ ] Users can add more characterics to their posts
+  - Users can share and view web videos
+  - Users can set flags such as "Question" or "Opinion" while creating a post
+  - Users can filter posts by flags on the home feed
+  - Users can upload images directly from their local machine as an image file
+- [ ] Web app displays a loading animation whenever data is being fetched
 
-   ```sql
-   -- Create posts table with user authentication
-   CREATE TABLE posts (
-     id BIGSERIAL PRIMARY KEY,
-     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-     title TEXT NOT NULL,
-     content TEXT,
-     image_url TEXT,
-     location TEXT,
-     grade TEXT,
-     upvotes INTEGER DEFAULT 0,
-     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-   );
+The following **additional** features are implemented:
 
-   -- Create comments table with user authentication
-   CREATE TABLE comments (
-     id BIGSERIAL PRIMARY KEY,
-     post_id BIGINT REFERENCES posts(id) ON DELETE CASCADE,
-     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-     content TEXT NOT NULL,
-     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-   );
+* [ ] List anything else that you added to improve the site's functionality!
 
-   -- Enable Row Level Security
-   ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
-   ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
+## Video Walkthrough
 
-   -- Create policies for authenticated access
-   CREATE POLICY "Allow public read access" ON posts FOR SELECT USING (true);
-   CREATE POLICY "Allow authenticated users to insert" ON posts FOR INSERT WITH CHECK (auth.uid() = user_id);
-   CREATE POLICY "Allow users to update their own posts" ON posts FOR UPDATE USING (auth.uid() = user_id);
-   CREATE POLICY "Allow users to delete their own posts" ON posts FOR DELETE USING (auth.uid() = user_id);
+Here's a walkthrough of implemented user stories:
 
-   CREATE POLICY "Allow public read access" ON comments FOR SELECT USING (true);
-   CREATE POLICY "Allow authenticated users to insert comments" ON comments FOR INSERT WITH CHECK (auth.uid() = user_id);
-   CREATE POLICY "Allow users to update their own comments" ON comments FOR UPDATE USING (auth.uid() = user_id);
-   CREATE POLICY "Allow users to delete their own comments" ON comments FOR DELETE USING (auth.uid() = user_id);
-   ```
+<img src='http://i.imgur.com/link/to/your/gif/file.gif' title='Video Walkthrough' width='' alt='Video Walkthrough' />
 
-5. **Start the development server**
-   ```bash
-   npm start
-   ```
+<!-- Replace this with whatever GIF tool you used! -->
+GIF created with ...  
+<!-- Recommended tools:
+[Kap](https://getkap.co/) for macOS
+[ScreenToGif](https://www.screentogif.com/) for Windows
+[peek](https://github.com/phw/peek) for Linux. -->
 
-6. **Open your browser**
-   Navigate to `http://localhost:3000`
+## Notes
 
-## 🗄️ Database Schema
+Describe any challenges encountered while building the app.
 
-### Posts Table
-| Column | Type | Description |
-|--------|------|-------------|
-| id | BIGSERIAL | Primary key |
-| user_id | UUID | Foreign key to auth.users (required) |
-| title | TEXT | Post title (required) |
-| content | TEXT | Post content |
-| image_url | TEXT | External image URL |
-| location | TEXT | Climbing location |
-| grade | TEXT | Climbing grade (5.5-5.13+) |
-| upvotes | INTEGER | Number of upvotes (default: 0) |
-| created_at | TIMESTAMP | Creation timestamp |
+## License
 
-### Comments Table
-| Column | Type | Description |
-|--------|------|-------------|
-| id | BIGSERIAL | Primary key |
-| post_id | BIGINT | Foreign key to posts |
-| user_id | UUID | Foreign key to auth.users (required) |
-| content | TEXT | Comment content |
-| created_at | TIMESTAMP | Creation timestamp |
+    Copyright [2025] [Thy Tran]
 
-## 🎨 Design Features
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-- **Modern Gradient Design**: Beautiful purple-blue gradients
-- **Card-based Layout**: Clean, organized post cards
-- **Smooth Animations**: Hover effects and transitions
-- **Responsive Grid**: Adapts to all screen sizes
-- **Loading States**: Spinner animations for better UX
-- **Error Handling**: User-friendly error messages
+        http://www.apache.org/licenses/LICENSE-2.0
 
-## 🛠️ Technology Stack
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
 
-- **Frontend**: React.js 18
-- **Routing**: React Router DOM
-- **Database**: Supabase (PostgreSQL)
-- **Styling**: CSS3 with modern features
-- **Icons**: Font Awesome 6
-- **Fonts**: Inter (Google Fonts)
 
-## 📱 Responsive Design
 
-The application is fully responsive and works on:
-- Desktop (1200px+)
-- Tablet (768px - 1199px)
-- Mobile (< 768px)
 
-## 🚀 Deployment
 
-### Build for Production
-```bash
-npm run build
-```
 
-### Deploy to Vercel
-1. Install Vercel CLI: `npm i -g vercel`
-2. Run: `vercel`
-3. Follow the prompts
 
-### Deploy to Netlify
-1. Build the project: `npm run build`
-2. Drag the `build` folder to Netlify
-3. Configure environment variables if needed
 
-## 🔧 Configuration
 
-### Environment Variables
-Create a `.env` file in the root directory:
 
-```env
-REACT_APP_SUPABASE_URL=your_supabase_url
-REACT_APP_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
 
-Then update `src/supabase.js`:
-```javascript
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL
-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY
-```
 
-## 🎯 Project Requirements Met
 
-✅ **Create Form**: Users can create posts with title, content, and image URL  
-✅ **Home Feed**: Displays all posts with creation time, title, and upvotes  
-✅ **Post Navigation**: Clicking posts navigates to individual post pages  
-✅ **Search & Sort**: Search by title, sort by time or upvotes  
-✅ **Post Details**: Full post view with content, image, and comments  
-✅ **Comments**: Users can leave comments on posts  
-✅ **Upvotes**: Upvote button increases count by one  
-✅ **Edit/Delete**: Users can edit and delete their posts  
 
-## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
 
-## 📄 License
 
-This project is open source and available under the [MIT License](LICENSE).
 
-## 🙏 Acknowledgments
 
-- React.js team for the amazing framework
-- Supabase for the backend-as-a-service
-- Font Awesome for the beautiful icons
-- The climbing community for inspiration
 
----
-
-**Happy Climbing! 🧗‍♂️**
