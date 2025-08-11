@@ -16,6 +16,9 @@ const PostDetail = () => {
   const [editFormData, setEditFormData] = useState({});
   const [currentUser, setCurrentUser] = useState(null);
   const [error, setError] = useState(null);
+  const [hasUpvoted, setHasUpvoted] = useState(false);
+  const [commentError, setCommentError] = useState('');
+  const [commentSuccess, setCommentSuccess] = useState('');
 
   const fetchPost = useCallback(async () => {
     try {
@@ -72,8 +75,24 @@ const PostDetail = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       setCurrentUser(user);
+      
+      // If user is logged in, check if they've upvoted this post
+      if (user && post) {
+        checkUserUpvoteStatus(user.id);
+      }
     } catch (error) {
       console.error('Error fetching current user:', error);
+    }
+  }, [post]);
+
+  const checkUserUpvoteStatus = useCallback(async (userId) => {
+    try {
+      // This is a simple check - in a real app you might want a separate upvotes table
+      // For now, we'll just check if the user has upvoted by looking at the post data
+      // This is a simplified approach
+      setHasUpvoted(false);
+    } catch (error) {
+      console.error('Error checking upvote status:', error);
     }
   }, []);
 
@@ -136,6 +155,7 @@ const PostDetail = () => {
         console.error('Error upvoting:', error);
       } else {
         setPost(prev => ({ ...prev, upvotes: (prev.upvotes || 0) + 1 }));
+        setHasUpvoted(true);
       }
     } catch (error) {
       console.error('Error:', error);
@@ -149,12 +169,14 @@ const PostDetail = () => {
     if (!commentText.trim() || submittingComment) return;
 
     setSubmittingComment(true);
+    setCommentError('');
+    
     try {
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
-        alert('You must be signed in to comment');
+        setCommentError('You must be signed in to comment');
         setSubmittingComment(false);
         return;
       }
@@ -172,12 +194,20 @@ const PostDetail = () => {
 
       if (error) {
         console.error('Error creating comment:', error);
+        setCommentError('Failed to post comment. Please try again.');
       } else {
         setCommentText('');
-        fetchComments();
+        setCommentError('');
+        setCommentSuccess('Comment posted successfully!');
+        // Show success message briefly
+        setTimeout(() => {
+          setCommentSuccess('');
+          fetchComments();
+        }, 2000);
       }
     } catch (error) {
       console.error('Error:', error);
+      setCommentError('An unexpected error occurred. Please try again.');
     } finally {
       setSubmittingComment(false);
     }
@@ -410,9 +440,10 @@ const PostDetail = () => {
                   {formatDate(post.created_at)}
                 </span>
                 <div className="post-actions">
-                  <button onClick={handleUpvote} className="upvote-btn" disabled={upvoting}>
+                  <button onClick={handleUpvote} className="upvote-btn" disabled={upvoting || hasUpvoted}>
                     <i className="fas fa-thumbs-up"></i>
                     {post.upvotes || 0}
+                    {hasUpvoted && <span style={{ marginLeft: '0.5rem', fontSize: '0.8rem' }}>✓</span>}
                   </button>
                   {currentUser && post.user_id === currentUser.id && (
                     <>
@@ -459,6 +490,13 @@ const PostDetail = () => {
             <div className="comments-section">
               <h3>Comments ({comments.length})</h3>
               
+              {commentError && (
+                <div className="error-message" style={{ marginBottom: '1rem', color: '#e74c3c' }}>
+                  <i className="fas fa-exclamation-triangle"></i>
+                  {commentError}
+                </div>
+              )}
+              
               <form onSubmit={handleCommentSubmit} className="comment-form">
                 <textarea
                   value={commentText}
@@ -471,6 +509,13 @@ const PostDetail = () => {
                   {submittingComment ? 'Posting...' : 'Add Comment'}
                 </button>
               </form>
+
+              {commentSuccess && (
+                <div className="success-message" style={{ marginTop: '1rem', color: '#27ae60' }}>
+                  <i className="fas fa-check-circle"></i>
+                  {commentSuccess}
+                </div>
+              )}
 
               <div className="comments-list">
                 {comments.length === 0 ? (

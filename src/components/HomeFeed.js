@@ -132,6 +132,29 @@ const HomeFeed = () => {
                   </div>
                 )}
               </Link>
+              <div className="post-actions">
+                <button 
+                  className="upvote-btn-small"
+                  onClick={async () => {
+                    try {
+                      const { error } = await supabase
+                        .from('posts')
+                        .update({ upvotes: (post.upvotes || 0) + 1 })
+                        .eq('id', post.id);
+                      
+                      if (!error) {
+                        // Refresh posts to show updated upvote count
+                        fetchPosts();
+                      }
+                    } catch (error) {
+                      console.error('Error upvoting:', error);
+                    }
+                  }}
+                >
+                  <i className="fas fa-thumbs-up"></i>
+                  Upvote
+                </button>
+              </div>
             </div>
           ))
         )}
