@@ -1,19 +1,39 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
+import { UserContext } from '../contexts/UserContext';
 import './CreatePost.css';
 
 const CreatePost = () => {
   const navigate = useNavigate();
+  const { user } = useContext(UserContext);
   const [formData, setFormData] = useState({
     title: '',
     content: '',
     imageUrl: '',
     location: '',
-    grade: ''
+    grade: '',
+    flags: [],
+    repostId: '',
+    videoUrl: '',
+    difficulty: '',
+    weather: '',
+    equipment: '',
+    partners: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState('');
+
+  const availableFlags = [
+    { id: 'question', label: 'Question', icon: 'fas fa-question-circle' },
+    { id: 'opinion', label: 'Opinion', icon: 'fas fa-comment' },
+    { id: 'trip-report', label: 'Trip Report', icon: 'fas fa-map-marked-alt' },
+    { id: 'gear-review', label: 'Gear Review', icon: 'fas fa-tools' },
+    { id: 'beta', label: 'Beta', icon: 'fas fa-lightbulb' },
+    { id: 'safety', label: 'Safety', icon: 'fas fa-shield-alt' }
+  ];
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -21,6 +41,52 @@ const CreatePost = () => {
       ...prev,
       [name]: value
     }));
+  };
+
+  const handleFlagToggle = (flagId) => {
+    setFormData(prev => ({
+      ...prev,
+      flags: prev.flags.includes(flagId)
+        ? prev.flags.filter(id => id !== flagId)
+        : [...prev.flags, flagId]
+    }));
+  };
+
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadImage = async (file) => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `post-images/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('images')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('images')
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      throw error;
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -31,51 +97,49 @@ const CreatePost = () => {
       return;
     }
 
+    if (!user) {
+      setError('You must be authenticated to create a post');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
     try {
-      // Get current user
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
-      if (userError) {
-        console.error('Error getting user:', userError);
-        setError('Authentication error. Please try signing in again.');
-        setLoading(false);
-        return;
-      }
-      
-      if (!user) {
-        setError('You must be signed in to create a post');
-        setLoading(false);
-        return;
+      let finalImageUrl = formData.imageUrl;
+
+      // Upload local image if selected
+      if (selectedImage) {
+        try {
+          finalImageUrl = await uploadImage(selectedImage);
+        } catch (uploadError) {
+          setError('Failed to upload image. Please try again.');
+          setLoading(false);
+          return;
+        }
       }
 
-      console.log('Creating post with data:', {
+      const postData = {
         user_id: user.id,
         title: formData.title.trim(),
         content: formData.content.trim(),
-        image_url: formData.imageUrl.trim(),
+        image_url: finalImageUrl,
         location: formData.location.trim(),
         grade: formData.grade,
+        flags: formData.flags,
+        repost_id: formData.repostId.trim() || null,
+        video_url: formData.videoUrl.trim(),
+        difficulty: formData.difficulty.trim(),
+        weather: formData.weather.trim(),
+        equipment: formData.equipment.trim(),
+        partners: formData.partners.trim(),
         upvotes: 0,
         created_at: new Date().toISOString()
-      });
+      };
 
       const { data, error } = await supabase
         .from('posts')
-        .insert([
-          {
-            user_id: user.id,
-            title: formData.title.trim(),
-            content: formData.content.trim(),
-            image_url: formData.imageUrl.trim(),
-            location: formData.location.trim(),
-            grade: formData.grade,
-            upvotes: 0,
-            created_at: new Date().toISOString()
-          }
-        ])
+        .insert([postData])
         .select();
 
       if (error) {
@@ -83,7 +147,6 @@ const CreatePost = () => {
         setError(`Failed to create post: ${error.message}`);
       } else {
         console.log('Post created successfully:', data);
-        // Navigate to the newly created post
         navigate(`/post/${data[0].id}`);
       }
     } catch (error) {
@@ -138,6 +201,51 @@ const CreatePost = () => {
           </div>
 
           <div className="form-group">
+            <label>Post Flags</label>
+            <div className="flags-grid">
+              {availableFlags.map(flag => (
+                <label key={flag.id} className="flag-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={formData.flags.includes(flag.id)}
+                    onChange={() => handleFlagToggle(flag.id)}
+                  />
+                  <i className={flag.icon}></i>
+                  {flag.label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="repostId">Repost ID (Optional)</label>
+            <input
+              type="text"
+              id="repostId"
+              name="repostId"
+              value={formData.repostId}
+              onChange={handleChange}
+              placeholder="Enter post ID to reference another post"
+              className="form-input"
+            />
+            <small>Reference another post to create a thread</small>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="videoUrl">Video URL (Optional)</label>
+            <input
+              type="url"
+              id="videoUrl"
+              name="videoUrl"
+              value={formData.videoUrl}
+              onChange={handleChange}
+              placeholder="https://youtube.com/watch?v=..."
+              className="form-input"
+            />
+            <small>Add a video of your climb or technique!</small>
+          </div>
+
+          <div className="form-group">
             <label htmlFor="imageUrl">Image URL (Optional)</label>
             <input
               type="url"
@@ -148,7 +256,23 @@ const CreatePost = () => {
               placeholder="https://example.com/your-climbing-photo.jpg"
               className="form-input"
             />
-            <small>Add a photo of your climb, gear setup, or the beautiful view!</small>
+            <small>Or upload an image from your device below</small>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="imageFile">Upload Local Image</label>
+            <input
+              type="file"
+              id="imageFile"
+              accept="image/*"
+              onChange={handleImageSelect}
+              className="form-input"
+            />
+            {imagePreview && (
+              <div className="image-preview">
+                <img src={imagePreview} alt="Preview" />
+              </div>
+            )}
           </div>
 
           <div className="form-row">
@@ -195,6 +319,64 @@ const CreatePost = () => {
                 <option value="5.13+">5.13+</option>
               </select>
             </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="difficulty">Difficulty Level</label>
+              <select
+                id="difficulty"
+                name="difficulty"
+                value={formData.difficulty}
+                onChange={handleChange}
+                className="form-select"
+              >
+                <option value="">Select difficulty</option>
+                <option value="Easy">Easy</option>
+                <option value="Moderate">Moderate</option>
+                <option value="Hard">Hard</option>
+                <option value="Extreme">Extreme</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="weather">Weather Conditions</label>
+              <input
+                type="text"
+                id="weather"
+                name="weather"
+                value={formData.weather}
+                onChange={handleChange}
+                placeholder="e.g., Sunny, 75°F"
+                className="form-input"
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="equipment">Equipment Used</label>
+            <input
+              type="text"
+              id="equipment"
+              name="equipment"
+              value={formData.equipment}
+              onChange={handleChange}
+              placeholder="e.g., Harness, rope, quickdraws, helmet"
+              className="form-input"
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="partners">Climbing Partners</label>
+            <input
+              type="text"
+              id="partners"
+              name="partners"
+              value={formData.partners}
+              onChange={handleChange}
+              placeholder="e.g., John, Sarah, Mike"
+              className="form-input"
+            />
           </div>
 
           <div className="form-actions">

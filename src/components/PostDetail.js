@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../supabase';
+import { useUser } from '../contexts/UserContext';
 import './PostDetail.css';
 
 const PostDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useUser();
   const [post, setPost] = useState(null);
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -13,12 +15,14 @@ const PostDetail = () => {
   const [submittingComment, setSubmittingComment] = useState(false);
   const [upvoting, setUpvoting] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
+  const [showSecretKeyModal, setShowSecretKeyModal] = useState(false);
+  const [secretKeyInput, setSecretKeyInput] = useState('');
   const [editFormData, setEditFormData] = useState({});
-  const [currentUser, setCurrentUser] = useState(null);
   const [error, setError] = useState(null);
   const [hasUpvoted, setHasUpvoted] = useState(false);
   const [commentError, setCommentError] = useState('');
   const [commentSuccess, setCommentSuccess] = useState('');
+  const [referencedPost, setReferencedPost] = useState(null);
 
   const fetchPost = useCallback(async () => {
     try {
@@ -72,18 +76,12 @@ const PostDetail = () => {
   }, [id]);
 
   const fetchCurrentUser = useCallback(async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      setCurrentUser(user);
-      
-      // If user is logged in, check if they've upvoted this post
-      if (user && post) {
-        checkUserUpvoteStatus(user.id);
-      }
-    } catch (error) {
-      console.error('Error fetching current user:', error);
+    // User is now managed by UserContext
+    // Check if user is logged in, check if they've upvoted this post
+    if (user && post) {
+      checkUserUpvoteStatus(user.id);
     }
-  }, [post]);
+  }, [user, post]);
 
   const checkUserUpvoteStatus = useCallback(async (userId) => {
     try {
@@ -93,6 +91,80 @@ const PostDetail = () => {
       setHasUpvoted(false);
     } catch (error) {
       console.error('Error checking upvote status:', error);
+    }
+  }, []);
+
+  const verifySecretKey = () => {
+    if (!user || !secretKeyInput.trim()) {
+      setError('Please enter your secret key');
+      return false;
+    }
+    
+    if (secretKeyInput.trim() !== user.secretKey) {
+      setError('Invalid secret key. You can only edit/delete your own posts.');
+      return false;
+    }
+    
+    return true;
+  };
+
+  const handleEditClick = () => {
+    if (!user) {
+      setError('You must be authenticated to edit posts');
+      return;
+    }
+    
+    if (post.user_id !== user.id) {
+      setError('You can only edit your own posts');
+      return;
+    }
+    
+    setShowSecretKeyModal(true);
+  };
+
+  const handleDeleteClick = () => {
+    if (!user) {
+      setError('You must be authenticated to delete posts');
+      return;
+    }
+    
+    if (post.user_id !== user.id) {
+      setError('You can only delete your own posts');
+      return;
+    }
+    
+    setShowSecretKeyModal(true);
+  };
+
+  const handleSecretKeySubmit = () => {
+    if (verifySecretKey()) {
+      setShowSecretKeyModal(false);
+      setSecretKeyInput('');
+      setError(null);
+      // Proceed with the action (edit or delete)
+      if (showEditForm) {
+        setShowEditForm(true);
+      } else {
+        handleDelete();
+      }
+    }
+  };
+
+  const fetchReferencedPost = useCallback(async (repostId) => {
+    if (!repostId) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('posts')
+        .select('*')
+        .eq('id', repostId)
+        .single();
+      
+      if (!error && data) {
+        setReferencedPost(data);
+      }
+    } catch (error) {
+      console.error('Error fetching referenced post:', error);
     }
   }, []);
 
@@ -120,9 +192,6 @@ const PostDetail = () => {
       const startTime = Date.now();
       const minLoadingTime = 500; // Minimum 500ms loading time
       
-      // Test database connection first
-      await testDatabaseConnection();
-      
       await Promise.all([
         fetchPost(),
         fetchComments(),
@@ -138,7 +207,13 @@ const PostDetail = () => {
     };
     
     loadData();
-  }, [fetchPost, fetchComments, fetchCurrentUser, testDatabaseConnection]);
+  }, [fetchPost, fetchComments, fetchCurrentUser]);
+
+  useEffect(() => {
+    if (post && post.repost_id) {
+      fetchReferencedPost(post.repost_id);
+    }
+  }, [post, fetchReferencedPost]);
 
 
   const handleUpvote = async () => {
@@ -172,11 +247,8 @@ const PostDetail = () => {
     setCommentError('');
     
     try {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      
       if (!user) {
-        setCommentError('You must be signed in to comment');
+        setCommentError('You must be authenticated to comment');
         setSubmittingComment(false);
         return;
       }
@@ -218,17 +290,14 @@ const PostDetail = () => {
     if (!editFormData.title.trim()) return;
 
     try {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      
       if (!user) {
-        alert('You must be signed in to edit posts');
+        setError('You must be authenticated to edit posts');
         return;
       }
 
       // Check if user owns the post
       if (post.user_id !== user.id) {
-        alert('You can only edit your own posts');
+        setError('You can only edit your own posts');
         return;
       }
 
@@ -258,17 +327,14 @@ const PostDetail = () => {
     if (!window.confirm('Are you sure you want to delete this post?')) return;
 
     try {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      
       if (!user) {
-        alert('You must be signed in to delete posts');
+        setError('You must be authenticated to delete posts');
         return;
       }
 
       // Check if user owns the post
       if (post.user_id !== user.id) {
-        alert('You can only delete your own posts');
+        setError('You can only delete your own posts');
         return;
       }
 
@@ -445,13 +511,13 @@ const PostDetail = () => {
                     {post.upvotes || 0}
                     {hasUpvoted && <span style={{ marginLeft: '0.5rem', fontSize: '0.8rem' }}>✓</span>}
                   </button>
-                  {currentUser && post.user_id === currentUser.id && (
+                  {user && post.user_id === user.id && (
                     <>
-                      <button onClick={() => setShowEditForm(true)} className="btn btn-secondary">
+                      <button onClick={handleEditClick} className="btn btn-secondary">
                         <i className="fas fa-edit"></i>
                         Edit
                       </button>
-                      <button onClick={handleDelete} className="btn btn-danger">
+                      <button onClick={handleDeleteClick} className="btn btn-danger">
                         <i className="fas fa-trash"></i>
                         Delete
                       </button>
@@ -484,6 +550,38 @@ const PostDetail = () => {
             {post.image_url && (
               <div className="post-image">
                 <img src={post.image_url} alt="Climbing adventure" />
+              </div>
+            )}
+
+            {post.video_url && (
+              <div className="post-video">
+                <video controls className="video-player">
+                  <source src={post.video_url} type="video/mp4" />
+                  Your browser does not support the video tag.
+                </video>
+              </div>
+            )}
+
+            {referencedPost && (
+              <div className="referenced-post">
+                <h4>Referenced Post</h4>
+                <div className="referenced-post-content">
+                  <h5>{referencedPost.title}</h5>
+                  <p>{referencedPost.content?.substring(0, 150)}...</p>
+                  <Link to={`/post/${referencedPost.id}`} className="btn btn-secondary">
+                    View Full Post
+                  </Link>
+                </div>
+              </div>
+            )}
+
+            {post.flags && post.flags.length > 0 && (
+              <div className="post-flags">
+                {post.flags.map(flag => (
+                  <span key={flag} className="post-flag">
+                    {flag}
+                  </span>
+                ))}
               </div>
             )}
 
@@ -540,6 +638,47 @@ const PostDetail = () => {
           </div>
         )}
       </div>
+
+      {/* Secret Key Modal */}
+      {showSecretKeyModal && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <h3>Enter Your Secret Key</h3>
+            <p>To {showEditForm ? 'edit' : 'delete'} this post, please enter your secret key:</p>
+            
+            <input
+              type="password"
+              value={secretKeyInput}
+              onChange={(e) => setSecretKeyInput(e.target.value)}
+              placeholder="Enter your secret key"
+              className="form-input"
+            />
+            
+            {error && (
+              <div className="error-message">
+                <i className="fas fa-exclamation-triangle"></i>
+                {error}
+              </div>
+            )}
+            
+            <div className="modal-actions">
+              <button
+                onClick={() => {
+                  setShowSecretKeyModal(false);
+                  setSecretKeyInput('');
+                  setError(null);
+                }}
+                className="btn btn-secondary"
+              >
+                Cancel
+              </button>
+              <button onClick={handleSecretKeySubmit} className="btn btn-primary">
+                Verify Key
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
