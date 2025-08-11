@@ -36,13 +36,31 @@ const CreatePost = () => {
 
     try {
       // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) {
+        console.error('Error getting user:', userError);
+        setError('Authentication error. Please try signing in again.');
+        setLoading(false);
+        return;
+      }
       
       if (!user) {
         setError('You must be signed in to create a post');
         setLoading(false);
         return;
       }
+
+      console.log('Creating post with data:', {
+        user_id: user.id,
+        title: formData.title.trim(),
+        content: formData.content.trim(),
+        image_url: formData.imageUrl.trim(),
+        location: formData.location.trim(),
+        grade: formData.grade,
+        upvotes: 0,
+        created_at: new Date().toISOString()
+      });
 
       const { data, error } = await supabase
         .from('posts')
@@ -62,8 +80,9 @@ const CreatePost = () => {
 
       if (error) {
         console.error('Error creating post:', error);
-        setError('Failed to create post. Please try again.');
+        setError(`Failed to create post: ${error.message}`);
       } else {
+        console.log('Post created successfully:', data);
         // Navigate to the newly created post
         navigate(`/post/${data[0].id}`);
       }

@@ -15,9 +15,11 @@ const PostDetail = () => {
   const [showEditForm, setShowEditForm] = useState(false);
   const [editFormData, setEditFormData] = useState({});
   const [currentUser, setCurrentUser] = useState(null);
+  const [error, setError] = useState(null);
 
   const fetchPost = useCallback(async () => {
     try {
+      console.log('Fetching post with ID:', id);
       const { data, error } = await supabase
         .from('posts')
         .select('*')
@@ -26,9 +28,13 @@ const PostDetail = () => {
 
       if (error) {
         console.error('Error fetching post:', error);
-        navigate('/');
+        setError(`Failed to load post: ${error.message}`);
+        setLoading(false);
+        return;
       } else {
+        console.log('Post fetched successfully:', data);
         setPost(data);
+        setError(null);
         setEditFormData({
           title: data.title,
           content: data.content,
@@ -39,11 +45,10 @@ const PostDetail = () => {
       }
     } catch (error) {
       console.error('Error:', error);
-      navigate('/');
-    } finally {
+      setError(`Unexpected error: ${error.message}`);
       setLoading(false);
     }
-  }, [id, navigate]);
+  }, [id]);
 
   const fetchComments = useCallback(async () => {
     try {
@@ -63,6 +68,58 @@ const PostDetail = () => {
     }
   }, [id]);
 
+  const fetchCurrentUser = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUser(user);
+    } catch (error) {
+      console.error('Error fetching current user:', error);
+    }
+  }, []);
+
+  // Test function to verify database connection
+  const testDatabaseConnection = useCallback(async () => {
+    try {
+      console.log('Testing database connection...');
+      const { data, error } = await supabase
+        .from('posts')
+        .select('count')
+        .limit(1);
+      
+      if (error) {
+        console.error('Database connection test failed:', error);
+      } else {
+        console.log('Database connection test successful:', data);
+      }
+    } catch (error) {
+      console.error('Database connection test error:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    const loadData = async () => {
+      const startTime = Date.now();
+      const minLoadingTime = 500; // Minimum 500ms loading time
+      
+      // Test database connection first
+      await testDatabaseConnection();
+      
+      await Promise.all([
+        fetchPost(),
+        fetchComments(),
+        fetchCurrentUser()
+      ]);
+      
+      const elapsed = Date.now() - startTime;
+      if (elapsed < minLoadingTime) {
+        await new Promise(resolve => setTimeout(resolve, minLoadingTime - elapsed));
+      }
+      
+      setLoading(false);
+    };
+    
+    loadData();
+  }, [fetchPost, fetchComments, fetchCurrentUser, testDatabaseConnection]);
 
 
   const handleUpvote = async () => {
@@ -215,6 +272,28 @@ const PostDetail = () => {
       <div className="loading-container">
         <div className="loading-spinner"></div>
         <p>Loading adventure...</p>
+        <p style={{ fontSize: '0.9rem', color: '#7f8c8d' }}>
+          Please wait while we fetch your climbing story
+        </p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="error-container">
+        <h3>Oops! Something went wrong</h3>
+        <p style={{ color: '#e74c3c', marginBottom: '2rem' }}>{error}</p>
+        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+          <button onClick={() => window.location.reload()} className="btn btn-primary">
+            <i className="fas fa-redo"></i>
+            Try Again
+          </button>
+          <button onClick={() => navigate('/')} className="btn btn-secondary">
+            <i className="fas fa-home"></i>
+            Back to Adventures
+          </button>
+        </div>
       </div>
     );
   }
@@ -223,7 +302,9 @@ const PostDetail = () => {
     return (
       <div className="error-container">
         <h3>Post not found</h3>
+        <p>The adventure you're looking for doesn't exist or may have been removed.</p>
         <button onClick={() => navigate('/')} className="btn btn-primary">
+          <i className="fas fa-mountain"></i>
           Back to Adventures
         </button>
       </div>

@@ -11,6 +11,7 @@ const HomeFeed = () => {
 
   const fetchPosts = useCallback(async () => {
     try {
+      console.log('Fetching posts with sort:', sortBy);
       let query = supabase
         .from('posts')
         .select('*');
@@ -26,6 +27,7 @@ const HomeFeed = () => {
       if (error) {
         console.error('Error fetching posts:', error);
       } else {
+        console.log('Posts fetched successfully:', data);
         setPosts(data || []);
       }
     } catch (error) {
