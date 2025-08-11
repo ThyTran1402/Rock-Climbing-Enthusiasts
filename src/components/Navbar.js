@@ -19,7 +19,7 @@ const Navbar = () => {
       <div className="nav-container">
         <Link to="/" className="nav-logo">
           <i className="fas fa-mountain"></i>
-          <span>Summit Seekers</span>
+          <span>Your Journey Starts Here</span>
         </Link>
 
         <div className="nav-menu">
