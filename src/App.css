@@ -93,6 +93,37 @@ body {
   100% { transform: rotate(360deg); }
 }
 
+/* Loading container */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 1rem;
+  text-align: center;
+}
+
+.loading-container .loading-spinner {
+  width: 60px;
+  height: 60px;
+  border-width: 6px;
+  border-top-color: #667eea;
+  margin-bottom: 1rem;
+}
+
+.loading-container p {
+  color: #718096;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.loading-container i {
+  font-size: 3rem;
+  color: #667eea;
+  margin-bottom: 1rem;
+}
+
 /* Form styles */
 .form-input,
 .form-textarea,

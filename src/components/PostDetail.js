@@ -1,13 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../supabase';
-import { useUser } from '../contexts/UserContext';
 import './PostDetail.css';
 
-const PostDetail = () => {
+const PostDetail = ({ user }) => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useUser();
   const [post, setPost] = useState(null);
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,14 +13,11 @@ const PostDetail = () => {
   const [submittingComment, setSubmittingComment] = useState(false);
   const [upvoting, setUpvoting] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
-  const [showSecretKeyModal, setShowSecretKeyModal] = useState(false);
-  const [secretKeyInput, setSecretKeyInput] = useState('');
   const [editFormData, setEditFormData] = useState({});
   const [error, setError] = useState(null);
   const [hasUpvoted, setHasUpvoted] = useState(false);
   const [commentError, setCommentError] = useState('');
   const [commentSuccess, setCommentSuccess] = useState('');
-  const [referencedPost, setReferencedPost] = useState(null);
 
   const fetchPost = useCallback(async () => {
     try {
@@ -75,14 +70,6 @@ const PostDetail = () => {
     }
   }, [id]);
 
-  const fetchCurrentUser = useCallback(async () => {
-    // User is now managed by UserContext
-    // Check if user is logged in, check if they've upvoted this post
-    if (user && post) {
-      checkUserUpvoteStatus(user.id);
-    }
-  }, [user, post]);
-
   const checkUserUpvoteStatus = useCallback(async (userId) => {
     try {
       // This is a simple check - in a real app you might want a separate upvotes table
@@ -94,132 +81,50 @@ const PostDetail = () => {
     }
   }, []);
 
-  const verifySecretKey = () => {
-    if (!user || !secretKeyInput.trim()) {
-      setError('Please enter your secret key');
-      return false;
-    }
-    
-    if (secretKeyInput.trim() !== user.secretKey) {
-      setError('Invalid secret key. You can only edit/delete your own posts.');
-      return false;
-    }
-    
-    return true;
-  };
-
   const handleEditClick = () => {
     if (!user) {
-      setError('You must be authenticated to edit posts');
+      setError('You must be logged in to edit posts');
       return;
     }
     
-    if (post.user_id !== user.id) {
+    if (user.id !== post.user_id) {
       setError('You can only edit your own posts');
       return;
     }
     
-    setShowSecretKeyModal(true);
+    setShowEditForm(true);
   };
 
   const handleDeleteClick = () => {
     if (!user) {
-      setError('You must be authenticated to delete posts');
+      setError('You must be logged in to delete posts');
       return;
     }
     
-    if (post.user_id !== user.id) {
+    if (user.id !== post.user_id) {
       setError('You can only delete your own posts');
       return;
     }
     
-    setShowSecretKeyModal(true);
-  };
-
-  const handleSecretKeySubmit = () => {
-    if (verifySecretKey()) {
-      setShowSecretKeyModal(false);
-      setSecretKeyInput('');
-      setError(null);
-      // Proceed with the action (edit or delete)
-      if (showEditForm) {
-        setShowEditForm(true);
-      } else {
-        handleDelete();
-      }
+    if (window.confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
+      handleDelete();
     }
   };
-
-  const fetchReferencedPost = useCallback(async (repostId) => {
-    if (!repostId) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('posts')
-        .select('*')
-        .eq('id', repostId)
-        .single();
-      
-      if (!error && data) {
-        setReferencedPost(data);
-      }
-    } catch (error) {
-      console.error('Error fetching referenced post:', error);
-    }
-  }, []);
-
-  // Test function to verify database connection
-  const testDatabaseConnection = useCallback(async () => {
-    try {
-      console.log('Testing database connection...');
-      const { data, error } = await supabase
-        .from('posts')
-        .select('count')
-        .limit(1);
-      
-      if (error) {
-        console.error('Database connection test failed:', error);
-      } else {
-        console.log('Database connection test successful:', data);
-      }
-    } catch (error) {
-      console.error('Database connection test error:', error);
-    }
-  }, []);
-
-  useEffect(() => {
-    const loadData = async () => {
-      const startTime = Date.now();
-      const minLoadingTime = 500; // Minimum 500ms loading time
-      
-      await Promise.all([
-        fetchPost(),
-        fetchComments(),
-        fetchCurrentUser()
-      ]);
-      
-      const elapsed = Date.now() - startTime;
-      if (elapsed < minLoadingTime) {
-        await new Promise(resolve => setTimeout(resolve, minLoadingTime - elapsed));
-      }
-      
-      setLoading(false);
-    };
-    
-    loadData();
-  }, [fetchPost, fetchComments, fetchCurrentUser]);
-
-  useEffect(() => {
-    if (post && post.repost_id) {
-      fetchReferencedPost(post.repost_id);
-    }
-  }, [post, fetchReferencedPost]);
-
 
   const handleUpvote = async () => {
-    if (!post || upvoting) return;
+    if (!user) {
+      setError('You must be logged in to upvote posts');
+      return;
+    }
+
+    if (hasUpvoted) {
+      setError('You have already upvoted this post');
+      return;
+    }
 
     setUpvoting(true);
+    setError('');
+
     try {
       const { error } = await supabase
         .from('posts')
@@ -227,13 +132,17 @@ const PostDetail = () => {
         .eq('id', id);
 
       if (error) {
-        console.error('Error upvoting:', error);
-      } else {
-        setPost(prev => ({ ...prev, upvotes: (prev.upvotes || 0) + 1 }));
-        setHasUpvoted(true);
+        throw error;
       }
+
+      setPost(prev => ({
+        ...prev,
+        upvotes: (prev.upvotes || 0) + 1
+      }));
+      setHasUpvoted(true);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error upvoting:', error);
+      setError('Failed to upvote post. Please try again.');
     } finally {
       setUpvoting(false);
     }
@@ -241,45 +150,41 @@ const PostDetail = () => {
 
   const handleCommentSubmit = async (e) => {
     e.preventDefault();
-    if (!commentText.trim() || submittingComment) return;
+    
+    if (!commentText.trim()) {
+      setCommentError('Comment cannot be empty');
+      return;
+    }
+
+    if (!user) {
+      setCommentError('You must be logged in to comment');
+      return;
+    }
 
     setSubmittingComment(true);
     setCommentError('');
-    
-    try {
-      if (!user) {
-        setCommentError('You must be authenticated to comment');
-        setSubmittingComment(false);
-        return;
-      }
+    setCommentSuccess('');
 
+    try {
       const { error } = await supabase
         .from('comments')
-        .insert([
-          {
-            post_id: id,
-            user_id: user.id,
-            content: commentText.trim(),
-            created_at: new Date().toISOString()
-          }
-        ]);
+        .insert([{
+          post_id: id,
+          user_id: user.id,
+          content: commentText.trim(),
+          created_at: new Date().toISOString()
+        }]);
 
       if (error) {
-        console.error('Error creating comment:', error);
-        setCommentError('Failed to post comment. Please try again.');
-      } else {
-        setCommentText('');
-        setCommentError('');
-        setCommentSuccess('Comment posted successfully!');
-        // Show success message briefly
-        setTimeout(() => {
-          setCommentSuccess('');
-          fetchComments();
-        }, 2000);
+        throw error;
       }
+
+      setCommentText('');
+      setCommentSuccess('Comment posted successfully!');
+      fetchComments(); // Refresh comments
     } catch (error) {
-      console.error('Error:', error);
-      setCommentError('An unexpected error occurred. Please try again.');
+      console.error('Error posting comment:', error);
+      setCommentError('Failed to post comment. Please try again.');
     } finally {
       setSubmittingComment(false);
     }
@@ -287,107 +192,123 @@ const PostDetail = () => {
 
   const handleEditSubmit = async (e) => {
     e.preventDefault();
-    if (!editFormData.title.trim()) return;
+    
+    if (!editFormData.title.trim()) {
+      setError('Title is required');
+      return;
+    }
 
     try {
-      if (!user) {
-        setError('You must be authenticated to edit posts');
-        return;
-      }
-
-      // Check if user owns the post
-      if (post.user_id !== user.id) {
-        setError('You can only edit your own posts');
-        return;
-      }
-
       const { error } = await supabase
         .from('posts')
         .update({
           title: editFormData.title.trim(),
           content: editFormData.content.trim(),
-          image_url: editFormData.imageUrl.trim(),
-          location: editFormData.location.trim(),
-          grade: editFormData.grade
+          image_url: editFormData.imageUrl.trim() || null,
+          location: editFormData.location.trim() || null,
+          grade: editFormData.grade.trim() || null,
+          updated_at: new Date().toISOString()
         })
         .eq('id', id);
 
       if (error) {
-        console.error('Error updating post:', error);
-      } else {
-        fetchPost();
-        setShowEditForm(false);
+        throw error;
       }
+
+      setPost(prev => ({
+        ...prev,
+        title: editFormData.title.trim(),
+        content: editFormData.content.trim(),
+        image_url: editFormData.imageUrl.trim() || null,
+        location: editFormData.location.trim() || null,
+        grade: editFormData.grade.trim() || null
+      }));
+
+      setShowEditForm(false);
+      setError('');
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error updating post:', error);
+      setError('Failed to update post. Please try again.');
     }
   };
 
   const handleDelete = async () => {
-    if (!window.confirm('Are you sure you want to delete this post?')) return;
-
     try {
-      if (!user) {
-        setError('You must be authenticated to delete posts');
-        return;
-      }
-
-      // Check if user owns the post
-      if (post.user_id !== user.id) {
-        setError('You can only delete your own posts');
-        return;
-      }
-
       const { error } = await supabase
         .from('posts')
         .delete()
         .eq('id', id);
 
       if (error) {
-        console.error('Error deleting post:', error);
-      } else {
-        navigate('/');
+        throw error;
       }
+
+      navigate('/');
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error deleting post:', error);
+      setError('Failed to delete post. Please try again.');
     }
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
       year: 'numeric',
-      month: 'short',
+      month: 'long',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
     });
   };
 
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        await Promise.all([
+          fetchPost(),
+          fetchComments()
+        ]);
+      } catch (error) {
+        console.error('Error loading data:', error);
+        setError('Failed to load post data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [fetchPost, fetchComments]);
+
+  useEffect(() => {
+    if (user && post) {
+      checkUserUpvoteStatus(user.id);
+    }
+  }, [user, post, checkUserUpvoteStatus]);
+
   if (loading) {
     return (
       <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <p>Loading adventure...</p>
-        <p style={{ fontSize: '0.9rem', color: '#7f8c8d' }}>
-          Please wait while we fetch your climbing story
-        </p>
+        <div className="loading-spinner">
+          <i className="fas fa-mountain fa-spin"></i>
+          <p>Loading your adventure...</p>
+        </div>
       </div>
     );
   }
 
-  if (error) {
+  if (error && !post) {
     return (
       <div className="error-container">
-        <h3>Oops! Something went wrong</h3>
-        <p style={{ color: '#e74c3c', marginBottom: '2rem' }}>{error}</p>
-        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-          <button onClick={() => window.location.reload()} className="btn btn-primary">
-            <i className="fas fa-redo"></i>
-            Try Again
-          </button>
-          <button onClick={() => navigate('/')} className="btn btn-secondary">
+        <div className="error-message">
+          <i className="fas fa-exclamation-triangle"></i>
+          <h2>Oops! Something went wrong</h2>
+          <p>{error}</p>
+          <button onClick={() => navigate('/')} className="btn btn-primary">
             <i className="fas fa-home"></i>
-            Back to Adventures
+            Back to Home
           </button>
         </div>
       </div>
@@ -397,221 +318,213 @@ const PostDetail = () => {
   if (!post) {
     return (
       <div className="error-container">
-        <h3>Post not found</h3>
-        <p>The adventure you're looking for doesn't exist or may have been removed.</p>
-        <button onClick={() => navigate('/')} className="btn btn-primary">
-          <i className="fas fa-mountain"></i>
-          Back to Adventures
-        </button>
+        <div className="error-message">
+          <i className="fas fa-question-circle"></i>
+          <h2>Post Not Found</h2>
+          <p>The post you're looking for doesn't exist or has been removed.</p>
+          <button onClick={() => navigate('/')} className="btn btn-primary">
+            <i className="fas fa-home"></i>
+            Back to Home
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="post-detail">
-      <div className="post-detail-container">
-        <button onClick={() => navigate('/')} className="back-btn">
-          <i className="fas fa-arrow-left"></i>
-          Back to Adventures
-        </button>
-
+      <div className="post-container">
         {showEditForm ? (
-          <div className="edit-form-container">
-            <h3>Edit Adventure</h3>
-            <form onSubmit={handleEditSubmit} className="edit-form">
+          <div className="edit-form">
+            <h2>Edit Your Adventure</h2>
+            <form onSubmit={handleEditSubmit}>
               <div className="form-group">
-                <label>Title *</label>
+                <label htmlFor="edit-title">Title *</label>
                 <input
                   type="text"
+                  id="edit-title"
                   value={editFormData.title}
-                  onChange={(e) => setEditFormData(prev => ({ ...prev, title: e.target.value }))}
-                  required
+                  onChange={(e) => setEditFormData(prev => ({
+                    ...prev,
+                    title: e.target.value
+                  }))}
                   className="form-input"
+                  required
                 />
               </div>
+
               <div className="form-group">
-                <label>Content</label>
+                <label htmlFor="edit-content">Content</label>
                 <textarea
+                  id="edit-content"
                   value={editFormData.content}
-                  onChange={(e) => setEditFormData(prev => ({ ...prev, content: e.target.value }))}
-                  rows="6"
+                  onChange={(e) => setEditFormData(prev => ({
+                    ...prev,
+                    content: e.target.value
+                  }))}
                   className="form-textarea"
+                  rows="6"
                 />
               </div>
+
               <div className="form-group">
-                <label>Image URL</label>
+                <label htmlFor="edit-imageUrl">Image URL</label>
                 <input
                   type="url"
+                  id="edit-imageUrl"
                   value={editFormData.imageUrl}
-                  onChange={(e) => setEditFormData(prev => ({ ...prev, imageUrl: e.target.value }))}
+                  onChange={(e) => setEditFormData(prev => ({
+                    ...prev,
+                    imageUrl: e.target.value
+                  }))}
                   className="form-input"
                 />
               </div>
+
               <div className="form-row">
                 <div className="form-group">
-                  <label>Location</label>
+                  <label htmlFor="edit-location">Location</label>
                   <input
                     type="text"
+                    id="edit-location"
                     value={editFormData.location}
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, location: e.target.value }))}
+                    onChange={(e) => setEditFormData(prev => ({
+                      ...prev,
+                      location: e.target.value
+                    }))}
                     className="form-input"
                   />
                 </div>
+
                 <div className="form-group">
-                  <label>Grade</label>
-                  <select
+                  <label htmlFor="edit-grade">Grade</label>
+                  <input
+                    type="text"
+                    id="edit-grade"
                     value={editFormData.grade}
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, grade: e.target.value }))}
-                    className="form-select"
-                  >
-                    <option value="">Select grade</option>
-                    <option value="5.5">5.5</option>
-                    <option value="5.6">5.6</option>
-                    <option value="5.7">5.7</option>
-                    <option value="5.8">5.8</option>
-                    <option value="5.9">5.9</option>
-                    <option value="5.10a">5.10a</option>
-                    <option value="5.10b">5.10b</option>
-                    <option value="5.10c">5.10c</option>
-                    <option value="5.10d">5.10d</option>
-                    <option value="5.11a">5.11a</option>
-                    <option value="5.11b">5.11b</option>
-                    <option value="5.11c">5.11c</option>
-                    <option value="5.11d">5.11d</option>
-                    <option value="5.12a">5.12a</option>
-                    <option value="5.12b">5.12b</option>
-                    <option value="5.12c">5.12c</option>
-                    <option value="5.12d">5.12d</option>
-                    <option value="5.13+">5.13+</option>
-                  </select>
+                    onChange={(e) => setEditFormData(prev => ({
+                      ...prev,
+                      grade: e.target.value
+                    }))}
+                    className="form-input"
+                  />
                 </div>
               </div>
+
               <div className="form-actions">
-                <button type="button" onClick={() => setShowEditForm(false)} className="btn btn-secondary">
+                <button
+                  type="button"
+                  onClick={() => setShowEditForm(false)}
+                  className="btn btn-secondary"
+                >
                   Cancel
                 </button>
                 <button type="submit" className="btn btn-primary">
+                  <i className="fas fa-save"></i>
                   Save Changes
                 </button>
               </div>
             </form>
           </div>
         ) : (
-          <div className="post-content">
+          <>
             <div className="post-header">
               <h1>{post.title}</h1>
               <div className="post-meta">
                 <span className="post-date">
-                  <i className="fas fa-clock"></i>
+                  <i className="fas fa-calendar"></i>
                   {formatDate(post.created_at)}
                 </span>
-                <div className="post-actions">
-                  <button onClick={handleUpvote} className="upvote-btn" disabled={upvoting || hasUpvoted}>
-                    <i className="fas fa-thumbs-up"></i>
-                    {post.upvotes || 0}
-                    {hasUpvoted && <span style={{ marginLeft: '0.5rem', fontSize: '0.8rem' }}>✓</span>}
-                  </button>
-                  {user && post.user_id === user.id && (
-                    <>
-                      <button onClick={handleEditClick} className="btn btn-secondary">
-                        <i className="fas fa-edit"></i>
-                        Edit
-                      </button>
-                      <button onClick={handleDeleteClick} className="btn btn-danger">
-                        <i className="fas fa-trash"></i>
-                        Delete
-                      </button>
-                    </>
-                  )}
-                </div>
+                {post.location && (
+                  <span className="post-location">
+                    <i className="fas fa-map-marker-alt"></i>
+                    {post.location}
+                  </span>
+                )}
+                {post.grade && (
+                  <span className="post-grade">
+                    <i className="fas fa-chart-line"></i>
+                    {post.grade}
+                  </span>
+                )}
               </div>
             </div>
 
-            {post.location && (
-              <div className="post-location">
-                <i className="fas fa-map-marker-alt"></i>
-                {post.location}
-              </div>
-            )}
-
-            {post.grade && (
-              <div className="post-grade">
-                <i className="fas fa-chart-line"></i>
-                Grade: {post.grade}
-              </div>
-            )}
-
-            {post.content && (
-              <div className="post-body">
-                <p>{post.content}</p>
-              </div>
-            )}
-
             {post.image_url && (
               <div className="post-image">
-                <img src={post.image_url} alt="Climbing adventure" />
+                <img src={post.image_url} alt={post.title} />
               </div>
             )}
 
-            {post.video_url && (
-              <div className="post-video">
-                <video controls className="video-player">
-                  <source src={post.video_url} type="video/mp4" />
-                  Your browser does not support the video tag.
-                </video>
-              </div>
-            )}
+            <div className="post-content">
+              <p>{post.content}</p>
+            </div>
 
-            {referencedPost && (
-              <div className="referenced-post">
-                <h4>Referenced Post</h4>
-                <div className="referenced-post-content">
-                  <h5>{referencedPost.title}</h5>
-                  <p>{referencedPost.content?.substring(0, 150)}...</p>
-                  <Link to={`/post/${referencedPost.id}`} className="btn btn-secondary">
-                    View Full Post
-                  </Link>
+            <div className="post-actions">
+              <button
+                onClick={handleUpvote}
+                disabled={upvoting || hasUpvoted}
+                className={`upvote-btn ${hasUpvoted ? 'upvoted' : ''}`}
+              >
+                {hasUpvoted ? (
+                  <i className="fas fa-check"></i>
+                ) : (
+                  <i className="fas fa-thumbs-up"></i>
+                )}
+                {hasUpvoted ? 'Upvoted' : 'Upvote'} ({post.upvotes || 0})
+              </button>
+
+              {user && user.id === post.user_id && (
+                <div className="post-owner-actions">
+                  <button onClick={handleEditClick} className="btn btn-secondary">
+                    <i className="fas fa-edit"></i>
+                    Edit
+                  </button>
+                  <button onClick={handleDeleteClick} className="btn btn-danger">
+                    <i className="fas fa-trash"></i>
+                    Delete
+                  </button>
                 </div>
-              </div>
-            )}
-
-            {post.flags && post.flags.length > 0 && (
-              <div className="post-flags">
-                {post.flags.map(flag => (
-                  <span key={flag} className="post-flag">
-                    {flag}
-                  </span>
-                ))}
-              </div>
-            )}
+              )}
+            </div>
 
             <div className="comments-section">
               <h3>Comments ({comments.length})</h3>
               
-              {commentError && (
-                <div className="error-message" style={{ marginBottom: '1rem', color: '#e74c3c' }}>
-                  <i className="fas fa-exclamation-triangle"></i>
-                  {commentError}
-                </div>
-              )}
-              
-              <form onSubmit={handleCommentSubmit} className="comment-form">
-                <textarea
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  placeholder="Share your thoughts on this adventure..."
-                  rows="3"
-                  className="comment-input"
-                />
-                <button type="submit" className="btn btn-primary" disabled={submittingComment}>
-                  {submittingComment ? 'Posting...' : 'Add Comment'}
-                </button>
-              </form>
-
-              {commentSuccess && (
-                <div className="success-message" style={{ marginTop: '1rem', color: '#27ae60' }}>
-                  <i className="fas fa-check-circle"></i>
-                  {commentSuccess}
+              {user ? (
+                <form onSubmit={handleCommentSubmit} className="comment-form">
+                  <div className="form-group">
+                    <textarea
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
+                      placeholder="Share your thoughts on this adventure..."
+                      className="form-textarea"
+                      rows="3"
+                      required
+                    />
+                  </div>
+                  
+                  {commentError && (
+                    <div className="error-message">
+                      <i className="fas fa-exclamation-triangle"></i>
+                      {commentError}
+                    </div>
+                  )}
+                  
+                  {commentSuccess && (
+                    <div className="success-message">
+                      <i className="fas fa-check-circle"></i>
+                      {commentSuccess}
+                    </div>
+                  )}
+                  
+                  <button type="submit" className="btn btn-primary" disabled={submittingComment}>
+                    {submittingComment ? 'Posting...' : 'Post Comment'}
+                  </button>
+                </form>
+              ) : (
+                <div className="auth-prompt">
+                  <p>Please <Link to="/auth">sign in</Link> to leave a comment.</p>
                 </div>
               )}
 
@@ -619,66 +532,23 @@ const PostDetail = () => {
                 {comments.length === 0 ? (
                   <p className="no-comments">No comments yet. Be the first to share your thoughts!</p>
                 ) : (
-                  comments.map((comment) => (
+                  comments.map(comment => (
                     <div key={comment.id} className="comment">
+                      <div className="comment-header">
+                        <span className="comment-author">User {comment.user_id.substring(0, 8)}...</span>
+                        <span className="comment-date">{formatDate(comment.created_at)}</span>
+                      </div>
                       <div className="comment-content">
                         <p>{comment.content}</p>
-                      </div>
-                      <div className="comment-meta">
-                        <span className="comment-date">
-                          <i className="fas fa-clock"></i>
-                          {formatDate(comment.created_at)}
-                        </span>
                       </div>
                     </div>
                   ))
                 )}
               </div>
             </div>
-          </div>
+          </>
         )}
       </div>
-
-      {/* Secret Key Modal */}
-      {showSecretKeyModal && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <h3>Enter Your Secret Key</h3>
-            <p>To {showEditForm ? 'edit' : 'delete'} this post, please enter your secret key:</p>
-            
-            <input
-              type="password"
-              value={secretKeyInput}
-              onChange={(e) => setSecretKeyInput(e.target.value)}
-              placeholder="Enter your secret key"
-              className="form-input"
-            />
-            
-            {error && (
-              <div className="error-message">
-                <i className="fas fa-exclamation-triangle"></i>
-                {error}
-              </div>
-            )}
-            
-            <div className="modal-actions">
-              <button
-                onClick={() => {
-                  setShowSecretKeyModal(false);
-                  setSecretKeyInput('');
-                  setError(null);
-                }}
-                className="btn btn-secondary"
-              >
-                Cancel
-              </button>
-              <button onClick={handleSecretKeySubmit} className="btn btn-primary">
-                Verify Key
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

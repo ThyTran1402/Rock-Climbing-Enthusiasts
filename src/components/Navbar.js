@@ -1,17 +1,42 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useUser } from '../contexts/UserContext';
 import './Navbar.css';
 
-const Navbar = () => {
-  const { user, signOut } = useUser();
+const Navbar = ({ user, onAuthChange }) => {
   const navigate = useNavigate();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
-  const handleSignOut = () => {
-    signOut();
-    setShowUserMenu(false);
-    navigate('/');
+  const handleSignOut = async () => {
+    try {
+      await onAuthChange();
+      setShowUserMenu(false);
+      navigate('/');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
+  const getUserDisplayName = () => {
+    if (user?.user_metadata?.full_name) {
+      return user.user_metadata.full_name;
+    }
+    if (user?.user_metadata?.name) {
+      return user.user_metadata.name;
+    }
+    if (user?.email) {
+      return user.email.split('@')[0];
+    }
+    return user?.id?.substring(0, 8) || 'User';
+  };
+
+  const getUserAvatar = () => {
+    if (user?.user_metadata?.avatar_url) {
+      return user.user_metadata.avatar_url;
+    }
+    if (user?.user_metadata?.picture) {
+      return user.user_metadata.picture;
+    }
+    return null;
   };
 
   return (
@@ -40,16 +65,25 @@ const Navbar = () => {
                   className="user-menu-button"
                   onClick={() => setShowUserMenu(!showUserMenu)}
                 >
-                  <i className="fas fa-user"></i>
-                  {user.id.substring(0, 8)}...
+                  {getUserAvatar() ? (
+                    <img 
+                      src={getUserAvatar()} 
+                      alt="User avatar" 
+                      className="user-avatar"
+                    />
+                  ) : (
+                    <i className="fas fa-user"></i>
+                  )}
+                  {getUserDisplayName()}
                   <i className={`fas fa-chevron-down ${showUserMenu ? 'rotated' : ''}`}></i>
                 </button>
                 
                 {showUserMenu && (
                   <div className="user-dropdown">
                     <div className="user-info">
-                      <p><strong>User ID:</strong> {user.id}</p>
-                      <p><strong>Status:</strong> Authenticated</p>
+                      <p><strong>Name:</strong> {getUserDisplayName()}</p>
+                      <p><strong>Email:</strong> {user.email}</p>
+                      <p><strong>Provider:</strong> {user.app_metadata?.provider || 'email'}</p>
                     </div>
                     <button onClick={handleSignOut} className="dropdown-item">
                       <i className="fas fa-sign-out-alt"></i>
