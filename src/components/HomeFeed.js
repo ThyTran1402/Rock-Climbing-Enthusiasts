@@ -163,7 +163,7 @@ const HomeFeed = () => {
                     </span>
                     <span className="post-comments">
                       <i className="fas fa-comments"></i>
-                      {/* You can add comment count here if you have a comments table */}
+                      0
                     </span>
                   </div>
                   

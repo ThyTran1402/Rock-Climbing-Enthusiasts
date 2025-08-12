@@ -44,7 +44,7 @@ const Navbar = ({ user, onAuthChange }) => {
       <div className="nav-container">
         <Link to="/" className="nav-logo">
           <i className="fas fa-mountain"></i>
-          <span>Your Journey Starts Here</span>
+          <span>Ayo Rock Climbers</span>
         </Link>
 
         <div className="nav-menu">
