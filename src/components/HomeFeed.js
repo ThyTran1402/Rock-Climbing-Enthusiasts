@@ -38,7 +38,16 @@ const HomeFeed = () => {
   }, [sortBy]);
 
   useEffect(() => {
-    fetchPosts();
+    // Set a timeout to show content even if posts are slow to load
+    const timeoutId = setTimeout(() => {
+      setLoading(false);
+    }, 1500); // Show content after 1.5 seconds max
+
+    fetchPosts().finally(() => {
+      clearTimeout(timeoutId);
+    });
+
+    return () => clearTimeout(timeoutId);
   }, [fetchPosts]);
 
   const filteredPosts = posts.filter(post => {
@@ -58,12 +67,45 @@ const HomeFeed = () => {
     });
   };
 
+  // Show skeleton loading instead of spinner for better UX
   if (loading) {
     return (
-      <div className="loading-container">
-        <div className="loading-spinner">
-          <i className="fas fa-mountain fa-spin"></i>
-          <p>Loading adventures...</p>
+      <div className="home-feed">
+        <div className="feed-container">
+          <div className="feed-header">
+            <h1>Recent Adventures</h1>
+            <p>Discover amazing climbing stories from the community</p>
+          </div>
+
+          <div className="feed-controls">
+            <div className="search-section">
+              <div className="search-box">
+                <i className="fas fa-search"></i>
+                <input
+                  type="text"
+                  placeholder="Search adventures..."
+                  className="search-input"
+                  disabled
+                />
+              </div>
+            </div>
+
+            <div className="sort-section">
+              <select className="sort-select" disabled>
+                <option>Latest</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="posts-grid">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="post-card skeleton">
+                <div className="skeleton-header"></div>
+                <div className="skeleton-content"></div>
+                <div className="skeleton-footer"></div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );

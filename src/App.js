@@ -10,13 +10,20 @@ import './App.css';
 
 function App() {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authTimeout, setAuthTimeout] = useState(false);
 
   useEffect(() => {
+    // Set a timeout to show content even if auth is slow
+    const timeoutId = setTimeout(() => {
+      setAuthTimeout(true);
+    }, 2000); // Show content after 2 seconds max
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
-      setLoading(false);
+      setAuthLoading(false);
+      clearTimeout(timeoutId);
     });
 
     // Listen for auth changes
@@ -24,10 +31,14 @@ function App() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
-      setLoading(false);
+      setAuthLoading(false);
+      clearTimeout(timeoutId);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeoutId);
+    };
   }, []);
 
   const handleSignOut = async () => {
@@ -38,7 +49,8 @@ function App() {
     }
   };
 
-  if (loading) {
+  // Show loading only for a short time, then show content
+  if (authLoading && !authTimeout) {
     return (
       <div className="loading-container">
         <div className="loading-spinner">
